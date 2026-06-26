@@ -1,7 +1,10 @@
 import sqlite3
 import streamlit as st
-
 from agent import handle_ticket
+import os
+if not os.path.exists("support.db"):
+    import db_setup  # running the import builds the database
+
 
 DB_PATH = "support.db"
 
