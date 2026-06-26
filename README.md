@@ -11,7 +11,7 @@ for later milestones (semantic retrieval, scored memory, a global resolution pla
 - Produces a reply that acknowledges prior issues and their resolutions ("the recall moment")
 
 ## Live demo
-[your-app.streamlit.app](https://your-app.streamlit.app)
+https://support-agent-mngulei5dmlptmutxuspzb.streamlit.app/
 
 ## Architecture (M0)
 - **Database** — SQLite (`customers`, `tickets`), linked by `customer_id`
