@@ -1,10 +1,20 @@
 import sqlite3
 import streamlit as st
 from agent import handle_ticket
+
 import os
 if not os.path.exists("support.db"):
     import db_setup  # running the import builds the database
 
+# In the cloud, secrets come from st.secrets; locally they come from .env.
+# Copy any st.secrets into environment variables so the rest of the code (which reads
+# os.environ) works in both places.
+try:
+    for key in ["GROQ_API_KEY", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"]:
+        if key in st.secrets:
+            os.environ[key] = st.secrets[key]
+except Exception:
+    pass  # no st.secrets locally — that's fine, .env handles it
 
 DB_PATH = "support.db"
 
