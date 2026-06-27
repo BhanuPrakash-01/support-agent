@@ -29,7 +29,7 @@ fi
 step "Layer 1c: isolation invariant"
 # Every customer-table read must be scoped by customer_id. Flag any SELECT
 # from customers/tickets that has no WHERE customer_id filter for review.
-python scripts/check_isolation.py
+python scripts/check_boundaries.py
 
 step "Layer 2: unit + eval tests (offline, deterministic)"
 # Tests use the stub summarizer — no network, no live model in the gate.
@@ -46,7 +46,7 @@ fi
 
 step "Feature list integrity"
 # feature_list.json must be valid JSON and obey WIP=1 (at most one in_progress).
-python scripts/check_features.py
+python scripts/wip.py status
 
 echo
 echo "verify: ALL LAYERS GREEN"

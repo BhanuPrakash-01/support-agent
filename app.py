@@ -1,10 +1,10 @@
-import sqlite3
+import os
 import streamlit as st
 from agent import handle_ticket
+from memory import get_all_customers
 
-import os
 if not os.path.exists("support.db"):
-    import db_setup  # running the import builds the database
+    pass  # running the import builds the database
 
 # In the cloud, secrets come from st.secrets; locally they come from .env.
 # Copy any st.secrets into environment variables so the rest of the code (which reads
@@ -15,17 +15,6 @@ try:
             os.environ[key] = st.secrets[key]
 except Exception:
     pass  # no st.secrets locally — that's fine, .env handles it
-
-DB_PATH = "support.db"
-
-def get_all_customers():
-    """Fetch (id, name, plan) for every customer, to populate the dropdown."""
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT customer_id, name, plan FROM customers ORDER BY customer_id")
-    rows = cur.fetchall()
-    conn.close()
-    return rows
 
 st.title("Support agent (M0)")
 st.caption("A walking-skeleton support agent with primitive memory.")

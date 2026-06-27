@@ -7,7 +7,10 @@ Parses the AST so multi-line SQL is checked as a whole statement. A legitimate
 all-customer query (e.g. the UI dropdown) is waived with a trailing comment
 '# allow: all-customers' on the execute() line.
 """
-import ast, re, sys, pathlib
+import ast
+import re
+import sys
+import pathlib
 
 DB_ALLOWED = {"memory.py", "db_setup.py"}
 SCAN       = ["memory.py", "agent.py", "app.py", "db_setup.py"]
@@ -22,14 +25,17 @@ def literal_sql(node):
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        l, r = literal_sql(node.left), literal_sql(node.right)
-        return (l + r) if (l is not None and r is not None) else None
+        left_val = literal_sql(node.left)
+        right_val = literal_sql(node.right)
+        return (left_val + right_val) if (left_val is not None and right_val is not None) else None
     return None
 
 for path in SCAN:
     p = pathlib.Path(path)
-    if not p.exists(): continue
-    src = p.read_text(); lines = src.splitlines()
+    if not p.exists():
+        continue
+    src = p.read_text()
+    lines = src.splitlines()
     tree = ast.parse(src, filename=path)
 
     if path not in DB_ALLOWED:                       # Boundary 1: the memory seam
@@ -44,11 +50,17 @@ for path in SCAN:
         if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
                 and n.func.attr in ("execute", "executemany") and n.args):
             sql = literal_sql(n.args[0])
-            if not sql or not (TABLE.search(sql) and RW.search(sql)): continue
-            if SCHEMA.search(sql) or SCOPED.search(sql): continue
-            if WAIVER in lines[n.lineno - 1]: continue
+            if not sql or not (TABLE.search(sql) and RW.search(sql)):
+                continue
+            if SCHEMA.search(sql) or SCOPED.search(sql):
+                continue
+            if WAIVER in lines[n.lineno - 1]:
+                continue
             print(f"ISOLATION {path}:{n.lineno}: customer-table query without a "
                   f"customer_id filter (scope it, or mark '# {WAIVER}')", file=sys.stderr)
             violations += 1
 
-sys.exit(3) if violations else print("boundaries OK")
+if violations:
+    sys.exit(3)
+else:
+    print("boundaries OK")

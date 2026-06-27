@@ -49,6 +49,16 @@ def get_customer_context(customer_id: int) -> str:
     return "\n".join(lines)
 
 
+def get_all_customers():
+    """Fetch (id, name, plan) for every customer, to populate the dropdown."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT customer_id, name, plan FROM customers ORDER BY customer_id")  # allow: all-customers
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
 # Quick manual test when run directly.
 if __name__ == "__main__":
     print("--- Repeat customer (1001) ---")
