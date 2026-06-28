@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from agent import handle_ticket
-from memory import get_all_customers
+from memory import get_all_customers, get_customer_summary
 
 if not os.path.exists("support.db"):
     pass  # running the import builds the database
@@ -16,8 +16,8 @@ try:
 except Exception:
     pass  # no st.secrets locally — that's fine, .env handles it
 
-st.title("Support agent (M0)")
-st.caption("A walking-skeleton support agent with primitive memory.")
+st.title("Support agent (M1)")
+st.caption("Memory-centric support agent with per-customer rolling summaries.")
 
 customers = get_all_customers()
 
@@ -29,6 +29,13 @@ label_to_id = {
 
 choice = st.selectbox("Which customer are you?", list(label_to_id.keys()))
 customer_id = label_to_id[choice]
+
+summary = get_customer_summary(customer_id)
+if summary:
+    with st.expander("Customer summary (read-only)", expanded=True):
+        st.write(summary)
+else:
+    st.caption("No summary on file for this customer yet.")
 
 ticket_message = st.text_area(
     "Describe your issue:",

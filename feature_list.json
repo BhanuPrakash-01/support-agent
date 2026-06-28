@@ -23,10 +23,19 @@
       "area": "schema",
       "title": "customers table holds a summary column",
       "user_visible_behavior": "The customers table has a nullable `summary` TEXT column; db_setup.py builds it and is still safe to re-run.",
-      "verification_command": "python db_setup.py && python -m pytest test_memory.py::test_customers_has_summary_column -q",
-      "scope": ["db_setup.py", "test_memory.py"],
-      "state": "not_started",
-      "evidence": [],
+      "verification_command": "python3 db_setup.py && python3 -m pytest test_memory.py::test_customers_has_summary_column -q",
+      "scope": [
+        "db_setup.py",
+        "test_memory.py"
+      ],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-27T12:28:51.200957+00:00",
+          "command": "python3 db_setup.py && python3 -m pytest test_memory.py::test_customers_has_summary_column -q",
+          "exit": 0
+        }
+      ],
       "notes": "Column defaults to NULL. Existing seed inserts must still succeed."
     },
     {
@@ -35,11 +44,20 @@
       "area": "memory",
       "title": "update_customer_summary folds a closed ticket into the summary",
       "user_visible_behavior": "Calling update_customer_summary(customer_id, ticket, summarizer=...) persists an updated, concise summary (<= ~120 words). Accepts the no-prior-summary case.",
-      "verification_command": "python -m pytest test_memory.py::test_summary_update_persists test_memory.py::test_summary_update_first_time -q",
-      "scope": ["memory.py", "test_memory.py"],
-      "state": "not_started",
-      "evidence": [],
-      "notes": "Takes an optional `summarizer` callable (defaults to the real Groq call + retry-on-429) so tests pass a deterministic stub and the gate needs no network. All DB access stays in memory.py. Assert STRUCTURAL properties (persisted, non-empty, length bound) — never exact wording."
+      "verification_command": "python3 -m pytest test_memory.py::test_summary_update_persists test_memory.py::test_summary_update_first_time -q",
+      "scope": [
+        "memory.py",
+        "test_memory.py"
+      ],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-27T12:37:58.264079+00:00",
+          "command": "python3 -m pytest test_memory.py::test_summary_update_persists test_memory.py::test_summary_update_first_time -q",
+          "exit": 0
+        }
+      ],
+      "notes": "Takes an optional `summarizer` callable (defaults to the real Groq call + retry-on-429) so tests pass a deterministic stub and the gate needs no network. All DB access stays in memory.py. Assert STRUCTURAL properties (persisted, non-empty, length bound) \u2014 never exact wording."
     },
     {
       "id": "memory-003",
@@ -47,10 +65,19 @@
       "area": "memory",
       "title": "close_ticket sets resolution and triggers a summary update",
       "user_visible_behavior": "close_ticket(ticket_id, resolution) marks the ticket Closed, stores the resolution, and folds it into the owning customer's summary. It is the only path that mutates a summary.",
-      "verification_command": "python -m pytest test_memory.py::test_close_ticket_persists test_memory.py::test_close_ticket_isolation -q",
-      "scope": ["memory.py", "test_memory.py"],
-      "state": "not_started",
-      "evidence": [],
+      "verification_command": "python3 -m pytest test_memory.py::test_close_ticket_persists test_memory.py::test_close_ticket_isolation -q",
+      "scope": [
+        "memory.py",
+        "test_memory.py"
+      ],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-27T12:41:02.462172+00:00",
+          "command": "python3 -m pytest test_memory.py::test_close_ticket_persists test_memory.py::test_close_ticket_isolation -q",
+          "exit": 0
+        }
+      ],
       "notes": "Closing customer A's ticket must not touch customer B's summary (isolation). Tests inject the stub summarizer."
     },
     {
@@ -59,10 +86,19 @@
       "area": "memory",
       "title": "get_customer_context injects the summary at the top",
       "user_visible_behavior": "When a summary exists it appears at the top of the context block, above the raw ticket list. When absent, context still renders cleanly (no literal 'None', no crash).",
-      "verification_command": "python -m pytest test_memory.py::test_summary_injected test_memory.py::test_no_summary_renders test_memory.py::test_context_includes_past_tickets test_memory.py::test_isolation_between_customers -q",
-      "scope": ["memory.py", "test_memory.py"],
-      "state": "not_started",
-      "evidence": [],
+      "verification_command": "python3 -m pytest test_memory.py::test_summary_injected test_memory.py::test_no_summary_renders test_memory.py::test_context_includes_past_tickets test_memory.py::test_isolation_between_customers -q",
+      "scope": [
+        "memory.py",
+        "test_memory.py"
+      ],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-27T12:44:52.796664+00:00",
+          "command": "python3 -m pytest test_memory.py::test_summary_injected test_memory.py::test_no_summary_renders test_memory.py::test_context_includes_past_tickets test_memory.py::test_isolation_between_customers -q",
+          "exit": 0
+        }
+      ],
       "notes": "Re-runs the M0 recall + isolation tests so this change can't silently regress them."
     },
     {
@@ -71,11 +107,21 @@
       "area": "data",
       "title": "backfill summaries from existing closed tickets",
       "user_visible_behavior": "A one-time, idempotent backfill folds each seed customer's CLOSED tickets into a summary. Open tickets are excluded, so no summary claims a resolution that didn't happen.",
-      "verification_command": "python -m pytest test_memory.py::test_backfill_excludes_open_tickets test_memory.py::test_backfill_idempotent -q",
-      "scope": ["scripts/backfill_summaries.py", "memory.py", "test_memory.py"],
-      "state": "not_started",
-      "evidence": [],
-      "notes": "Gate runs with the stub summarizer (deterministic, offline). Run once for real against Groq to eyeball 1001's summary — that live run is manual, not part of the gate. 1003's OPEN refund ticket must not be folded in."
+      "verification_command": "python3 -m pytest test_memory.py::test_backfill_excludes_open_tickets test_memory.py::test_backfill_idempotent -q",
+      "scope": [
+        "scripts/backfill_summaries.py",
+        "memory.py",
+        "test_memory.py"
+      ],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-27T12:55:40.616216+00:00",
+          "command": "python3 -m pytest test_memory.py::test_backfill_excludes_open_tickets test_memory.py::test_backfill_idempotent -q",
+          "exit": 0
+        }
+      ],
+      "notes": "Gate runs with the stub summarizer (deterministic, offline). Run once for real against Groq to eyeball 1001's summary \u2014 that live run is manual, not part of the gate. 1003's OPEN refund ticket must not be folded in."
     },
     {
       "id": "ui-006",
@@ -84,9 +130,19 @@
       "title": "surface summary in UI + trace, and lock the M1 gate",
       "user_visible_behavior": "The Streamlit UI shows the selected customer's current summary (read-only). verify.sh runs the full M1 suite and exits 0.",
       "verification_command": "./verify.sh",
-      "scope": ["app.py", "verify.sh", "test_memory.py"],
-      "state": "not_started",
-      "evidence": [],
+      "scope": [
+        "app.py",
+        "verify.sh",
+        "test_memory.py"
+      ],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-27T12:59:29.007710+00:00",
+          "command": "./verify.sh",
+          "exit": 0
+        }
+      ],
       "notes": "Manual checks (record in evidence notes): summary visible in UI; one Langfuse trace shows the summary inside the assembled context. Automated: full verify.sh green."
     }
   ]

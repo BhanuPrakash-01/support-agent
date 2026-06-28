@@ -1,24 +1,21 @@
 # session-handoff.md
 
-_Last session: harness installation. For the next session to pick up._
+_Last session: ui-006 — M1 complete. For the next session to pick up._
 
 ## What happened
-- Built the full harness around the M0 agent: CLAUDE.md, docs/ARCHITECTURE.md,
-  docs/CONVENTIONS.md, feature_list.json (M1), verify.sh, scripts/ (wip.py,
-  check_boundaries.py, smoke_test.py, clean_exit.py), PROGRESS.md, DECISIONS.md.
-- No application code changed; M0 behavior is unchanged.
+- Added `get_customer_summary(customer_id)` to `memory.py` (returns the stored summary or None, keeps sqlite3 behind the memory seam).
+- Updated `app.py`: title bumped to M1, summary surfaced as a read-only `st.expander` between the customer selector and ticket input. Graceful fallback caption when summary is NULL.
+- `./verify.sh` → ALL LAYERS GREEN (12 tests, VCR=1.00 after passing).
 
 ## State
-- Active feature: none. The WIP=1 slot is free.
-- verify.sh: green on the M0 baseline.
+- **M1 complete.** All 6 features passing: summary-001, summary-002, memory-003, memory-004, backfill-005, ui-006.
+- verify.sh: green.
+- Active feature: none. WIP slot is free.
 
 ## Next step
-1. `./init.sh` — confirm the bootstrap contract holds (exit 0).
-2. `python scripts/wip.py activate summary-001`.
-3. Implement summary-001, then `python scripts/wip.py pass summary-001`
-   to run its verification and record evidence.
+M1 is done. Await M2 spec.
 
-## Watch-outs
-- app.py's customer-dropdown query needs the `# allow: all-customers` waiver the
-  first time check_boundaries.py runs against it.
-- Export GROQ_API_KEY (or rely on verify.sh sourcing .env) for the smoke test.
+## Manual checks still outstanding (per ui-006 notes)
+- [ ] Visually confirm summary displays in the Streamlit UI for a customer with a non-null summary (run `backfill_summaries` first or close a ticket to generate one).
+- [ ] Confirm one Langfuse trace shows the `Profile summary:` line inside the assembled context passed to the model.
+These are not automated gate items but should be recorded in evidence notes if desired.

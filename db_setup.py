@@ -13,7 +13,8 @@ CREATE TABLE customers (
     customer_id INTEGER PRIMARY KEY,
     name        TEXT NOT NULL,
     plan        TEXT NOT NULL,
-    created_at  TEXT NOT NULL
+    created_at  TEXT NOT NULL,
+    summary     TEXT
 )
 """)
 
@@ -37,7 +38,7 @@ customers = [
     (1003, "Meera Das",   "Pro",     "2025-09-03"),
 ]
 cur.executemany(
-    "INSERT INTO customers VALUES (?, ?, ?, ?)", customers
+    "INSERT INTO customers (customer_id, name, plan, created_at) VALUES (?, ?, ?, ?)", customers
 )
 
 # --- Seed data: tickets ---
