@@ -14,14 +14,14 @@ fi
 
 step "Layer 0: fresh database"
 # Rebuild support.db from seed so tests run against a known state, never stale data.
-python db_setup.py >/dev/null
+python -m support_agent.db_setup >/dev/null
 
 step "Layer 1a: lint"
 ruff check .
 
 step "Layer 1b: architecture boundary — memory seam"
 # memory.py owns all DB access. agent.py must never import sqlite3 directly.
-if grep -nE '^\s*import\s+sqlite3|^\s*from\s+sqlite3' agent.py; then
+if grep -nE '^\s*import\s+sqlite3|^\s*from\s+sqlite3' support_agent/agent.py; then
   echo "BOUNDARY VIOLATION: agent.py accesses sqlite3 directly. DB access belongs in memory.py." >&2
   exit 1
 fi
@@ -33,7 +33,7 @@ python scripts/check_boundaries.py
 
 step "Layer 2: unit + eval tests (offline, deterministic)"
 # Tests use the stub summarizer — no network, no live model in the gate.
-python -m pytest test_memory.py -q
+python -m pytest tests/ -q
 
 step "Layer 3: smoke test — the agent still answers a ticket"
 # The one layer that touches the real model. Skipped automatically when no

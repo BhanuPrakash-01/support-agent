@@ -1,5 +1,5 @@
 import sys
-from memory import close_ticket
+from support_agent.memory import close_ticket
 
 ticket_id = int(sys.argv[1])
 resolution = sys.argv[2]

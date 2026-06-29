@@ -1,5 +1,6 @@
 import sqlite3
-conn = sqlite3.connect("support.db")
+from support_agent import DB_PATH
+conn = sqlite3.connect(DB_PATH)
 for cid, name, summary in conn.execute(
     "SELECT customer_id, name, summary FROM customers"
 ):

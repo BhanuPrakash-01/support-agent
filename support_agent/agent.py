@@ -5,7 +5,7 @@ from langfuse.openai import OpenAI  # drop-in wrapper: same client, now traced
 from langfuse import observe
 from openai import RateLimitError
 
-from memory import get_customer_context
+from support_agent.memory import get_customer_context
 
 load_dotenv()
 

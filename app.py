@@ -1,10 +1,12 @@
-import os
 import streamlit as st
-from agent import handle_ticket
-from memory import get_all_customers, get_customer_summary
+from support_agent import DB_PATH
+from support_agent.agent import handle_ticket
+from support_agent.memory import list_customers, get_customer_summary
 
-if not os.path.exists("support.db"):
-    pass  # running the import builds the database
+import os
+from support_agent.db_setup import build_database
+if not os.path.exists(DB_PATH):
+    build_database()
 
 # In the cloud, secrets come from st.secrets; locally they come from .env.
 # Copy any st.secrets into environment variables so the rest of the code (which reads
@@ -19,7 +21,7 @@ except Exception:
 st.title("Support agent (M1)")
 st.caption("Memory-centric support agent with per-customer rolling summaries.")
 
-customers = get_all_customers()
+customers = list_customers()
 
 # Build a friendly label for each customer, mapping back to their id.
 label_to_id = {

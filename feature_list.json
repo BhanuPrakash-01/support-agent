@@ -1,14 +1,14 @@
 {
   "project": "support-agent",
-  "milestone": "M1",
-  "goal": "Add per-customer semantic memory: a rolling profile summary, updated by an LLM when a ticket closes, and always injected into context.",
-  "last_updated": "2026-06-27",
+  "milestone": "M2",
+  "goal": "Restructure into a package, fix two M1 carry-overs, then add episodic retrieval: past tickets embedded in a vector store and exposed as a tool the model chooses to call. Isolation now extends to the vector store.",
+  "last_updated": "2026-06-28",
   "rules": {
     "wip_limit": 1,
     "passing_requires_evidence": true,
     "do_not_skip_verification": true,
     "deterministic_verification": true,
-    "isolation_invariant": "all customer reads use WHERE customer_id = ?"
+    "isolation_invariant": "every customer read \u2014 SQL and vector \u2014 is scoped to a single customer_id"
   },
   "status_legend": {
     "not_started": "Work has not begun.",
@@ -18,132 +18,130 @@
   },
   "features": [
     {
-      "id": "summary-001",
+      "id": "refactor-001",
       "priority": 1,
-      "area": "schema",
-      "title": "customers table holds a summary column",
-      "user_visible_behavior": "The customers table has a nullable `summary` TEXT column; db_setup.py builds it and is still safe to re-run.",
-      "verification_command": "python3 db_setup.py && python3 -m pytest test_memory.py::test_customers_has_summary_column -q",
+      "area": "refactor",
+      "title": "restructure into an installable package",
+      "user_visible_behavior": "All application code lives in support_agent/, tests in tests/, with a pyproject.toml and `pip install -e .`. The app, tests, scripts, and verify.sh all still work from the new layout. Behavior is byte-for-byte unchanged.",
+      "verification_command": "pip install -e . && ./verify.sh",
       "scope": [
-        "db_setup.py",
-        "test_memory.py"
+        "pyproject.toml",
+        "support_agent/",
+        "app.py",
+        "tests/",
+        "scripts/",
+        "verify.sh",
+        "init.sh",
+        "requirements.txt",
+        "CLAUDE.md",
+        "docs/",
+        ".gitignore",
+        "data/"
       ],
       "state": "passing",
       "evidence": [
         {
-          "ts": "2026-06-27T12:28:51.200957+00:00",
-          "command": "python3 db_setup.py && python3 -m pytest test_memory.py::test_customers_has_summary_column -q",
+          "ts": "2026-06-29T17:41:11.676076+00:00",
+          "command": "pip install -e . && ./verify.sh",
           "exit": 0
         }
       ],
-      "notes": "Column defaults to NULL. Existing seed inserts must still succeed."
+      "notes": "ATOMIC: a refactor can't be half-done and green, so this one feature is legitimately large; verification is the full gate. Move files, fix every import to support_agent.*, move DB to data/support.db (db_setup creates data/), update check_boundaries.py SCAN/DB_ALLOWED to new paths, update verify.sh (db build = python -m support_agent.db_setup; tests = pytest tests/), add pip install -e . to init.sh and `-e .` to requirements.txt, update CLAUDE.md map. Commit before activating anything else."
     },
     {
-      "id": "summary-002",
+      "id": "summary-quality-001",
       "priority": 2,
       "area": "memory",
-      "title": "update_customer_summary folds a closed ticket into the summary",
-      "user_visible_behavior": "Calling update_customer_summary(customer_id, ticket, summarizer=...) persists an updated, concise summary (<= ~120 words). Accepts the no-prior-summary case.",
-      "verification_command": "python3 -m pytest test_memory.py::test_summary_update_persists test_memory.py::test_summary_update_first_time -q",
+      "title": "summarizer produces a tight, grounded profile",
+      "user_visible_behavior": "A customer summary is <= 3 sentences, never contains 'Unknown' or '[Not specified]', omits name/plan (those come from columns), and states only ticket-grounded facts \u2014 no invented sentiment.",
+      "verification_command": "python -m pytest tests/test_memory.py::test_summary_bounded tests/test_memory.py::test_summary_no_unknown_placeholders -q",
       "scope": [
-        "memory.py",
-        "test_memory.py"
+        "support_agent/memory.py",
+        "tests/test_memory.py"
       ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-27T12:37:58.264079+00:00",
-          "command": "python3 -m pytest test_memory.py::test_summary_update_persists test_memory.py::test_summary_update_first_time -q",
-          "exit": 0
-        }
-      ],
-      "notes": "Takes an optional `summarizer` callable (defaults to the real Groq call + retry-on-429) so tests pass a deterministic stub and the gate needs no network. All DB access stays in memory.py. Assert STRUCTURAL properties (persisted, non-empty, length bound) \u2014 never exact wording."
+      "state": "not_started",
+      "evidence": [],
+      "notes": "Fix is in the summarizer PROMPT, not the mechanism. Tests use the stub summarizer for determinism on length/structure; the no-'Unknown' check runs against a controlled stub output. Assert structure, never exact wording. Manual: regenerate 1001's real summary once and eyeball it."
     },
     {
-      "id": "memory-003",
+      "id": "close-ui-001",
       "priority": 3,
-      "area": "memory",
-      "title": "close_ticket sets resolution and triggers a summary update",
-      "user_visible_behavior": "close_ticket(ticket_id, resolution) marks the ticket Closed, stores the resolution, and folds it into the owning customer's summary. It is the only path that mutates a summary.",
-      "verification_command": "python3 -m pytest test_memory.py::test_close_ticket_persists test_memory.py::test_close_ticket_isolation -q",
-      "scope": [
-        "memory.py",
-        "test_memory.py"
-      ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-27T12:41:02.462172+00:00",
-          "command": "python3 -m pytest test_memory.py::test_close_ticket_persists test_memory.py::test_close_ticket_isolation -q",
-          "exit": 0
-        }
-      ],
-      "notes": "Closing customer A's ticket must not touch customer B's summary (isolation). Tests inject the stub summarizer."
-    },
-    {
-      "id": "memory-004",
-      "priority": 4,
-      "area": "memory",
-      "title": "get_customer_context injects the summary at the top",
-      "user_visible_behavior": "When a summary exists it appears at the top of the context block, above the raw ticket list. When absent, context still renders cleanly (no literal 'None', no crash).",
-      "verification_command": "python3 -m pytest test_memory.py::test_summary_injected test_memory.py::test_no_summary_renders test_memory.py::test_context_includes_past_tickets test_memory.py::test_isolation_between_customers -q",
-      "scope": [
-        "memory.py",
-        "test_memory.py"
-      ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-27T12:44:52.796664+00:00",
-          "command": "python3 -m pytest test_memory.py::test_summary_injected test_memory.py::test_no_summary_renders test_memory.py::test_context_includes_past_tickets test_memory.py::test_isolation_between_customers -q",
-          "exit": 0
-        }
-      ],
-      "notes": "Re-runs the M0 recall + isolation tests so this change can't silently regress them."
-    },
-    {
-      "id": "backfill-005",
-      "priority": 5,
-      "area": "data",
-      "title": "backfill summaries from existing closed tickets",
-      "user_visible_behavior": "A one-time, idempotent backfill folds each seed customer's CLOSED tickets into a summary. Open tickets are excluded, so no summary claims a resolution that didn't happen.",
-      "verification_command": "python3 -m pytest test_memory.py::test_backfill_excludes_open_tickets test_memory.py::test_backfill_idempotent -q",
-      "scope": [
-        "scripts/backfill_summaries.py",
-        "memory.py",
-        "test_memory.py"
-      ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-27T12:55:40.616216+00:00",
-          "command": "python3 -m pytest test_memory.py::test_backfill_excludes_open_tickets test_memory.py::test_backfill_idempotent -q",
-          "exit": 0
-        }
-      ],
-      "notes": "Gate runs with the stub summarizer (deterministic, offline). Run once for real against Groq to eyeball 1001's summary \u2014 that live run is manual, not part of the gate. 1003's OPEN refund ticket must not be folded in."
-    },
-    {
-      "id": "ui-006",
-      "priority": 6,
       "area": "ui",
-      "title": "surface summary in UI + trace, and lock the M1 gate",
-      "user_visible_behavior": "The Streamlit UI shows the selected customer's current summary (read-only). verify.sh runs the full M1 suite and exits 0.",
+      "title": "close-ticket button in the UI",
+      "user_visible_behavior": "From the app, a user can pick an open ticket, type a resolution, click Close, and the ticket is marked Closed and the customer's summary updates \u2014 no terminal needed. A human always performs the close; it is never automatic.",
+      "verification_command": "./verify.sh",
+      "scope": [
+        "app.py",
+        "tests/test_memory.py"
+      ],
+      "state": "not_started",
+      "evidence": [],
+      "notes": "Button calls the existing close_ticket(). UI itself is verified manually (record in evidence: closed a ticket from the app, summary changed). Gate just ensures no regression. Closing stays human-initiated by design (D-008 territory: irreversible action = human in the loop)."
+    },
+    {
+      "id": "retrieval-001",
+      "priority": 4,
+      "area": "retrieval",
+      "title": "vector store with isolated semantic search",
+      "user_visible_behavior": "support_agent/retrieval.py indexes a customer's past tickets into a local Chroma collection (customer_id in metadata, MiniLM embeddings) and search_history(customer_id, query) returns the most semantically relevant past tickets FOR THAT CUSTOMER ONLY.",
+      "verification_command": "python -m pytest tests/test_retrieval.py::test_search_returns_relevant tests/test_retrieval.py::test_search_isolation -q",
+      "scope": [
+        "support_agent/retrieval.py",
+        "tests/test_retrieval.py",
+        "requirements.txt"
+      ],
+      "state": "not_started",
+      "evidence": [],
+      "notes": "ISOLATION IS LOAD-BEARING HERE: every query passes where={'customer_id': cid}. check_boundaries.py cannot see Chroma, so test_search_isolation (index two customers, assert no cross-leak) is the only guard. Single collection + metadata filter (D-007). Embeddings local via sentence-transformers; first run downloads MiniLM. Chroma persists to data/chroma/."
+    },
+    {
+      "id": "tool-loop-001",
+      "priority": 5,
+      "area": "agent",
+      "title": "retrieval exposed as a tool the model can call",
+      "user_visible_behavior": "search_history is registered as a tool schema. When a ticket references the past, the model emits a tool call; the loop runs the search, feeds results back, and the model answers using them. When a ticket is self-contained, the model answers without calling it.",
+      "verification_command": "python -m pytest tests/test_retrieval.py::test_loop_executes_tool_call tests/test_retrieval.py::test_loop_terminates -q",
+      "scope": [
+        "support_agent/agent.py",
+        "support_agent/retrieval.py",
+        "tests/test_retrieval.py"
+      ],
+      "state": "not_started",
+      "evidence": [],
+      "notes": "handle_ticket gains an injectable model-call (default = real Groq) so the loop is testable with a stub model that emits a tool call, then a final answer. Tests assert the tool ran and the loop terminated \u2014 deterministic, offline. Keep retry-on-429. This is the first REAL multi-step agent loop."
+    },
+    {
+      "id": "index-sync-001",
+      "priority": 6,
+      "area": "retrieval",
+      "title": "keep the index in sync + backfill",
+      "user_visible_behavior": "Closing a ticket adds it to the vector index, so future searches can find it. A one-time backfill embeds all existing closed tickets.",
+      "verification_command": "python -m pytest tests/test_retrieval.py::test_closed_ticket_is_indexed tests/test_retrieval.py::test_backfill_indexes_all -q",
+      "scope": [
+        "support_agent/retrieval.py",
+        "support_agent/memory.py",
+        "scripts/backfill_embeddings.py",
+        "tests/test_retrieval.py"
+      ],
+      "state": "not_started",
+      "evidence": [],
+      "notes": "close_ticket also indexes the now-closed ticket. Backfill is idempotent (re-running doesn't duplicate). Only CLOSED tickets get indexed (consistent with D-004). Tests inject stub embeddings if needed to stay offline/fast."
+    },
+    {
+      "id": "lock-m2-001",
+      "priority": 7,
+      "area": "verify",
+      "title": "surface retrieval, lock the M2 gate",
+      "user_visible_behavior": "The UI/trace shows when retrieval was used for a reply. verify.sh runs the full M1+M2 suite and exits 0.",
       "verification_command": "./verify.sh",
       "scope": [
         "app.py",
         "verify.sh",
-        "test_memory.py"
+        "tests/test_retrieval.py"
       ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-27T12:59:29.007710+00:00",
-          "command": "./verify.sh",
-          "exit": 0
-        }
-      ],
-      "notes": "Manual checks (record in evidence notes): summary visible in UI; one Langfuse trace shows the summary inside the assembled context. Automated: full verify.sh green."
+      "state": "not_started",
+      "evidence": [],
+      "notes": "Manual evidence: one trace showing a tool call and one ticket where the model chose NOT to retrieve (the visible judgment \u2014 the M2 demo beat). Decide here whether cloud deployment ships local embeddings or a fallback (torch is heavy on Streamlit free tier)."
     }
   ]
 }

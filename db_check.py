@@ -1,6 +1,7 @@
 import sqlite3
+from support_agent import DB_PATH
 
-conn = sqlite3.connect("support.db")
+conn = sqlite3.connect(DB_PATH)
 cur = conn.cursor()
 
 # Pull everything belonging to our repeat customer, 1001.

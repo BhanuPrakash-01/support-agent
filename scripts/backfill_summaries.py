@@ -7,7 +7,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from memory import backfill_summaries
+from support_agent.memory import backfill_summaries
 
 if __name__ == "__main__":
     backfill_summaries()

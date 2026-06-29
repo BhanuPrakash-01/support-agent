@@ -12,8 +12,9 @@ import re
 import sys
 import pathlib
 
-DB_ALLOWED = {"memory.py", "db_setup.py"}
-SCAN       = ["memory.py", "agent.py", "app.py", "db_setup.py"]
+DB_ALLOWED = {"support_agent/memory.py", "support_agent/db_setup.py"}
+SCAN       = ["support_agent/memory.py", "support_agent/agent.py",
+              "support_agent/db_setup.py", "support_agent/retrieval.py", "app.py"]
 TABLE  = re.compile(r"\b(customers|tickets)\b", re.I)
 RW     = re.compile(r"\b(select|update|delete)\b", re.I)   # not insert: inserts create rows
 SCHEMA = re.compile(r"\b(create|drop|alter)\b", re.I)

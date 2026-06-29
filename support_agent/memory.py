@@ -1,6 +1,6 @@
 import sqlite3
+from support_agent import DB_PATH
 
-DB_PATH = "support.db"
 
 def get_customer_context(customer_id: int) -> str:
     """Return a plain-text summary of a customer and their ticket history.
@@ -163,7 +163,7 @@ def backfill_summaries(summarizer=None) -> None:
     conn.commit()
     conn.close()
 
-    for customer_id, _name, _plan in get_all_customers():
+    for customer_id, _name, _plan in list_customers():
         conn = sqlite3.connect(DB_PATH)
         cur = conn.cursor()
         cur.execute(
@@ -182,7 +182,7 @@ def backfill_summaries(summarizer=None) -> None:
             )
 
 
-def get_all_customers():
+def list_customers():
     """Fetch (id, name, plan) for every customer, to populate the dropdown."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()

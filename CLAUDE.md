@@ -22,11 +22,11 @@ a feature is done only when verification passes.
 | Latest handoff              | `session-handoff.md`   |
 
 ## Where the code is
-- `db_setup.py` — SQLite schema + seed data
-- `memory.py` — `get_customer_context()`: the memory layer
-- `agent.py` — `handle_ticket()`: the agent loop + retry-on-429
+- `support_agent/db_setup.py` — SQLite schema + seed data
+- `support_agent/memory.py` — `get_customer_context()`: the memory layer
+- `support_agent/agent.py` — `handle_ticket()`: the agent loop + retry-on-429
 - `app.py` — Streamlit UI
-- `test_memory.py` — eval checks (run by `verify.sh`)
+- `tests/test_memory.py` — eval checks (run by `verify.sh`)
 
 ## Workflow
 1. `./init.sh` — must exit 0 before any work.

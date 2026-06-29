@@ -1,11 +1,12 @@
 """Minimal eval seed for M0. Grows into the real harness in later milestones."""
 import sqlite3
-from memory import get_customer_context, update_customer_summary, close_ticket, backfill_summaries
+from support_agent import DB_PATH
+from support_agent.memory import get_customer_context, update_customer_summary, close_ticket, backfill_summaries
 
 
 def test_customers_has_summary_column():
     """The customers table must have a nullable summary TEXT column."""
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("PRAGMA table_info(customers)")
     columns = {row[1]: row[2] for row in cur.fetchall()}
@@ -15,7 +16,7 @@ def test_customers_has_summary_column():
 
 def test_summary_update_first_time():
     """update_customer_summary works when no prior summary exists (NULL case)."""
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE customers SET summary = NULL WHERE customer_id = 1001")
     conn.commit()
     conn.close()
@@ -28,7 +29,7 @@ def test_summary_update_first_time():
         summarizer=stub,
     )
 
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     row = conn.execute("SELECT summary FROM customers WHERE customer_id = 1001").fetchone()
     conn.close()
     assert row[0] is not None, "summary should not be None after first update"
@@ -46,7 +47,7 @@ def test_summary_update_persists():
         summarizer=stub,
     )
 
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     row = conn.execute("SELECT summary FROM customers WHERE customer_id = 1001").fetchone()
     conn.close()
     persisted = row[0]
@@ -57,7 +58,7 @@ def test_summary_update_persists():
 
 def test_close_ticket_persists():
     """close_ticket marks the ticket Closed and triggers a summary update for the owner."""
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE tickets SET status = 'Open', resolution = NULL WHERE ticket_id = 61450")
     conn.execute("UPDATE customers SET summary = NULL WHERE customer_id = 1003")
     conn.commit()
@@ -67,7 +68,7 @@ def test_close_ticket_persists():
         return "Customer 1003 stub summary."
     close_ticket(61450, "Refund processed", summarizer=stub)
 
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     ticket_row = conn.execute(
         "SELECT status, resolution FROM tickets WHERE ticket_id = 61450"
     ).fetchone()
@@ -84,7 +85,7 @@ def test_close_ticket_persists():
 
 def test_close_ticket_isolation():
     """Closing customer 1003's ticket must not touch customer 1002's summary."""
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE customers SET summary = 'sentinel-1002' WHERE customer_id = 1002")
     conn.execute("UPDATE tickets SET status = 'Open', resolution = NULL WHERE ticket_id = 61450")
     conn.commit()
@@ -94,7 +95,7 @@ def test_close_ticket_isolation():
         return "Updated 1003 summary."
     close_ticket(61450, "Resolved", summarizer=stub)
 
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     row = conn.execute(
         "SELECT summary FROM customers WHERE customer_id = 1002"
     ).fetchone()
@@ -104,7 +105,7 @@ def test_close_ticket_isolation():
 
 def test_summary_injected():
     """When a summary exists it appears at the top of the context, above the ticket list."""
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE customers SET summary = 'Known test summary text.' WHERE customer_id = 1001")
     conn.commit()
     conn.close()
@@ -118,7 +119,7 @@ def test_summary_injected():
 
 def test_no_summary_renders():
     """When summary is absent the context renders cleanly — no 'None', no crash."""
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE customers SET summary = NULL WHERE customer_id = 1001")
     conn.commit()
     conn.close()
@@ -130,7 +131,7 @@ def test_no_summary_renders():
 
 def test_backfill_excludes_open_tickets():
     """Backfill must not fold open tickets; customer with only open tickets stays NULL."""
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("UPDATE tickets SET status = 'Open', resolution = NULL WHERE ticket_id = 61450")
     conn.execute("UPDATE customers SET summary = NULL")
     conn.commit()
@@ -140,7 +141,7 @@ def test_backfill_excludes_open_tickets():
         return "backfilled"
     backfill_summaries(summarizer=stub)
 
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     rows = {
         r[0]: r[1]
         for r in conn.execute("SELECT customer_id, summary FROM customers").fetchall()
@@ -161,7 +162,7 @@ def test_backfill_idempotent():
         return f"summary-{counter['n']}"
 
     backfill_summaries(summarizer=stub)
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     after_first = conn.execute(
         "SELECT customer_id, summary FROM customers ORDER BY customer_id"
     ).fetchall()
@@ -169,7 +170,7 @@ def test_backfill_idempotent():
 
     counter["n"] = 0
     backfill_summaries(summarizer=stub)
-    conn = sqlite3.connect("support.db")
+    conn = sqlite3.connect(DB_PATH)
     after_second = conn.execute(
         "SELECT customer_id, summary FROM customers ORDER BY customer_id"
     ).fetchall()

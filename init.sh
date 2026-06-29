@@ -15,9 +15,10 @@ source .venv/bin/activate
 echo "==> Installing dependencies"
 pip install --quiet --upgrade pip
 pip install --quiet -r requirements.txt
+pip install -e .
 
 echo "==> Building database from seed"
-python db_setup.py >/dev/null
+python -m support_agent.db_setup >/dev/null
 
 echo "==> Running verification gate"
 if ! ./verify.sh; then
