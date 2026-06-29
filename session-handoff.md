@@ -1,21 +1,28 @@
 # session-handoff.md
 
-_Last session: ui-006 — M1 complete. For the next session to pick up._
+_Last session: refactor-001 (package restructure). For the next session._
 
 ## What happened
-- Added `get_customer_summary(customer_id)` to `memory.py` (returns the stored summary or None, keeps sqlite3 behind the memory seam).
-- Updated `app.py`: title bumped to M1, summary surfaced as a read-only `st.expander` between the customer selector and ticket input. Graceful fallback caption when summary is NULL.
-- `./verify.sh` → ALL LAYERS GREEN (12 tests, VCR=1.00 after passing).
+- Restructured into the support_agent/ package + tests/ + data/, with
+  pyproject.toml and `pip install -e .`. Fixed the app.py memory-seam leak by
+  moving the customer-list query into memory.list_customers().
+- Harness updated to the new paths (check_boundaries.py SCAN/DB_ALLOWED,
+  verify.sh, init.sh). Behavior unchanged from M1.
 
 ## State
-- **M1 complete.** All 6 features passing: summary-001, summary-002, memory-003, memory-004, backfill-005, ui-006.
-- verify.sh: green.
-- Active feature: none. WIP slot is free.
+- On main, committed, `./verify.sh` green. WIP slot is free.
 
 ## Next step
-M1 is done. Await M2 spec.
+1. `python scripts/wip.py activate summary-quality-001`.
+2. Tighten the summarizer prompt in memory._default_summarizer; add the
+   length + no-'Unknown' tests; then `wip.py pass summary-quality-001`.
 
-## Manual checks still outstanding (per ui-006 notes)
-- [ ] Visually confirm summary displays in the Streamlit UI for a customer with a non-null summary (run `backfill_summaries` first or close a ticket to generate one).
-- [ ] Confirm one Langfuse trace shows the `Profile summary:` line inside the assembled context passed to the model.
-These are not automated gate items but should be recorded in evidence notes if desired.
+## Watch-outs
+- close_ticket scopes by ticket_id (safe — one ticket = one customer), but
+  check_boundaries.py only recognizes customer_id, so those two queries carry a
+  mislabeled '# allow: all-customers' waiver. Optional fix: let SCOPED also
+  accept ticket_id, then drop those waivers.
+- M2 retrieval (retrieval-001 onward) adds chromadb + sentence-transformers;
+  torch is heavy on Streamlit Cloud — verify locally, solve deploy at lock-m2-001.
+- verify.sh Layer 1b (inline grep) is redundant with Layer 1c; agent.py __main__
+  references nonexistent customer 1004. Both cosmetic.

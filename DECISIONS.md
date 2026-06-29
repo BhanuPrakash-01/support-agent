@@ -36,3 +36,14 @@ Strike through when superseded — never delete.
 - Consequence: LLM functions take an injectable summarizer; tests use a stub. The
   live model is exercised only by the skippable smoke test. Tests assert
   structural properties, never exact wording.
+
+  ## D-006 — Application code lives in an installable package (support_agent/)
+- Date: 2026-06 (M2 / refactor-001)
+- Context: A flat root mixed app code, harness scripts, and config; imports
+  were fragile and M2 adds more modules.
+- Consequence: All app code is under support_agent/, installed with
+  `pip install -e .` so imports resolve identically from pytest, scripts, and
+  Streamlit. DB_PATH is defined once in support_agent/__init__.py. db_setup
+  builds the DB only when run explicitly (build_database), never on import.
+  The app.py dropdown query moved into memory.list_customers(), restoring the
+  memory seam (app.py no longer touches sqlite3).
