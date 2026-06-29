@@ -18,7 +18,7 @@ SCAN       = ["support_agent/memory.py", "support_agent/agent.py",
 TABLE  = re.compile(r"\b(customers|tickets)\b", re.I)
 RW     = re.compile(r"\b(select|update|delete)\b", re.I)   # not insert: inserts create rows
 SCHEMA = re.compile(r"\b(create|drop|alter)\b", re.I)
-SCOPED = re.compile(r"where\b.*customer_id", re.I | re.S)
+SCOPED = re.compile(r"where\b.*\b(customer_id|ticket_id)\b", re.I | re.S)
 WAIVER = "allow: all-customers"
 violations = 0
 

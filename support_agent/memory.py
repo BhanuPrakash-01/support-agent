@@ -121,7 +121,7 @@ def close_ticket(ticket_id: int, resolution: str, summarizer=None) -> None:
     """Mark a ticket Closed, persist the resolution, and fold it into the customer's summary."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute(  # allow: all-customers
+    cur.execute(
         "SELECT customer_id, subject, body FROM tickets WHERE ticket_id = ?",
         (ticket_id,),
     )
@@ -130,7 +130,7 @@ def close_ticket(ticket_id: int, resolution: str, summarizer=None) -> None:
         conn.close()
         return
     customer_id, subject, body = row
-    cur.execute(  # allow: all-customers
+    cur.execute(
         "UPDATE tickets SET status = 'Closed', resolution = ? WHERE ticket_id = ?",
         (resolution, ticket_id),
     )

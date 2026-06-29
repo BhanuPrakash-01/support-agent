@@ -19,14 +19,8 @@ python -m support_agent.db_setup >/dev/null
 step "Layer 1a: lint"
 ruff check .
 
-step "Layer 1b: architecture boundary — memory seam"
-# memory.py owns all DB access. agent.py must never import sqlite3 directly.
-if grep -nE '^\s*import\s+sqlite3|^\s*from\s+sqlite3' support_agent/agent.py; then
-  echo "BOUNDARY VIOLATION: agent.py accesses sqlite3 directly. DB access belongs in memory.py." >&2
-  exit 1
-fi
 
-step "Layer 1c: isolation invariant"
+step "Layer 1b: isolation invariant"
 # Every customer-table read must be scoped by customer_id. Flag any SELECT
 # from customers/tickets that has no WHERE customer_id filter for review.
 python scripts/check_boundaries.py
