@@ -66,8 +66,13 @@ def _default_summarizer(existing_summary, ticket_text):
     prior = f"Existing summary:\n{existing_summary}\n\n" if existing_summary else ""
     prompt = (
         f"{prior}New closed ticket:\n{ticket_text}\n\n"
-        "Write a concise customer profile summary (<=120 words) incorporating this ticket. "
-        "Focus on patterns: recurring issues, plan type, sentiment, resolutions."
+        "Write a customer profile summary in at most 3 sentences.\n"
+        "Rules:\n"
+        "- Use only facts stated in the tickets; do not invent sentiment or outcomes.\n"
+        "- Do NOT include the customer's name or plan (those are stored separately).\n"
+        "- Never write 'Unknown', '[Not specified]', or any placeholder for missing data.\n"
+        "- If a fact is absent, omit it entirely rather than substituting a placeholder.\n"
+        "- Be specific and grounded: mention issue types and resolutions that actually appear in the tickets."
     )
     for attempt in range(4):
         try:

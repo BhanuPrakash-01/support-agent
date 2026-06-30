@@ -196,6 +196,61 @@ def test_unknown_customer_is_handled():
     context = get_customer_context(9999)
     assert "No customer found" in context
 
+def test_summary_bounded():
+    """Summary stored by update_customer_summary must be at most 3 sentences."""
+    three_sentences = (
+        "Customer has reported recurring login failures across multiple sessions. "
+        "Two tickets were resolved via password resets. "
+        "One billing dispute was refunded after review."
+    )
+
+    def stub(existing, ticket_text):
+        return three_sentences
+
+    update_customer_summary(
+        1001,
+        {"subject": "Login", "body": "Cannot log in", "resolution": "Reset password"},
+        summarizer=stub,
+    )
+
+    conn = sqlite3.connect(DB_PATH)
+    summary = conn.execute(
+        "SELECT summary FROM customers WHERE customer_id = 1001"
+    ).fetchone()[0]
+    conn.close()
+
+    assert summary is not None, "summary should not be None"
+    sentences = [s.strip() for s in summary.replace("!", ".").replace("?", ".").split(".") if s.strip()]
+    assert len(sentences) <= 3, f"expected <= 3 sentences, got {len(sentences)}: {summary!r}"
+
+
+def test_summary_no_unknown_placeholders():
+    """Stored summary must not contain 'Unknown' or '[Not specified]'."""
+    clean_summary = (
+        "Customer experienced billing overcharges on two occasions. "
+        "Both issues were resolved with full refunds."
+    )
+
+    def stub(existing, ticket_text):
+        return clean_summary
+
+    update_customer_summary(
+        1001,
+        {"subject": "Billing", "body": "Charged twice", "resolution": "Refunded"},
+        summarizer=stub,
+    )
+
+    conn = sqlite3.connect(DB_PATH)
+    summary = conn.execute(
+        "SELECT summary FROM customers WHERE customer_id = 1001"
+    ).fetchone()[0]
+    conn.close()
+
+    assert summary is not None, "summary should not be None"
+    assert "Unknown" not in summary, f"'Unknown' found in summary: {summary!r}"
+    assert "[Not specified]" not in summary, f"'[Not specified]' found in summary: {summary!r}"
+
+
 if __name__ == "__main__":
     test_context_includes_past_tickets()
     test_isolation_between_customers()

@@ -54,13 +54,19 @@
       "area": "memory",
       "title": "summarizer produces a tight, grounded profile",
       "user_visible_behavior": "A customer summary is <= 3 sentences, never contains 'Unknown' or '[Not specified]', omits name/plan (those come from columns), and states only ticket-grounded facts \u2014 no invented sentiment.",
-      "verification_command": "python -m pytest tests/test_memory.py::test_summary_bounded tests/test_memory.py::test_summary_no_unknown_placeholders -q",
+      "verification_command": "python3 -m pytest tests/test_memory.py::test_summary_bounded tests/test_memory.py::test_summary_no_unknown_placeholders -q",
       "scope": [
         "support_agent/memory.py",
         "tests/test_memory.py"
       ],
-      "state": "not_started",
-      "evidence": [],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-30T08:33:02.959273+00:00",
+          "command": "python3 -m pytest tests/test_memory.py::test_summary_bounded tests/test_memory.py::test_summary_no_unknown_placeholders -q",
+          "exit": 0
+        }
+      ],
       "notes": "Fix is in the summarizer PROMPT, not the mechanism. Tests use the stub summarizer for determinism on length/structure; the no-'Unknown' check runs against a controlled stub output. Assert structure, never exact wording. Manual: regenerate 1001's real summary once and eyeball it."
     },
     {
