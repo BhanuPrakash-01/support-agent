@@ -96,14 +96,20 @@
       "area": "retrieval",
       "title": "vector store with isolated semantic search",
       "user_visible_behavior": "support_agent/retrieval.py indexes a customer's past tickets into a local Chroma collection (customer_id in metadata, MiniLM embeddings) and search_history(customer_id, query) returns the most semantically relevant past tickets FOR THAT CUSTOMER ONLY.",
-      "verification_command": "python -m pytest tests/test_retrieval.py::test_search_returns_relevant tests/test_retrieval.py::test_search_isolation -q",
+      "verification_command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_search_returns_relevant tests/test_retrieval.py::test_search_isolation -q",
       "scope": [
         "support_agent/retrieval.py",
         "tests/test_retrieval.py",
         "requirements.txt"
       ],
-      "state": "not_started",
-      "evidence": [],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-30T09:53:27.679235+00:00",
+          "command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_search_returns_relevant tests/test_retrieval.py::test_search_isolation -q",
+          "exit": 0
+        }
+      ],
       "notes": "ISOLATION IS LOAD-BEARING HERE: every query passes where={'customer_id': cid}. check_boundaries.py cannot see Chroma, so test_search_isolation (index two customers, assert no cross-leak) is the only guard. Single collection + metadata filter (D-007). Embeddings local via sentence-transformers; first run downloads MiniLM. Chroma persists to data/chroma/."
     },
     {

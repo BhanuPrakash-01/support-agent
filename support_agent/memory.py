@@ -122,7 +122,7 @@ def update_customer_summary(customer_id: int, ticket: dict, summarizer=None) -> 
     conn.close()
 
 
-def close_ticket(ticket_id: int, resolution: str, summarizer=None) -> None:
+def close_ticket(ticket_id: int, resolution: str, summarizer=None, embed=None, collection=None) -> None:
     """Mark a ticket Closed, persist the resolution, and fold it into the customer's summary."""
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
@@ -146,6 +146,23 @@ def close_ticket(ticket_id: int, resolution: str, summarizer=None) -> None:
         {"subject": subject, "body": body, "resolution": resolution},
         summarizer=summarizer,
     )
+    if collection is not None:
+        from support_agent import retrieval
+        text = f"{subject}\n{body}\nResolution: {resolution}"
+        retrieval.index_ticket(ticket_id, customer_id, text, collection=collection, embed=embed)
+
+
+def get_closed_tickets() -> list:
+    """Return [(ticket_id, customer_id, subject, body, resolution)] for all Closed tickets."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(  # allow: all-customers
+        "SELECT ticket_id, customer_id, subject, body, resolution "
+        "FROM tickets WHERE status = 'Closed'"
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
 
 
 def get_customer_summary(customer_id: int):

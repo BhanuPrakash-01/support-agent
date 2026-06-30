@@ -1,37 +1,44 @@
 # session-handoff.md
 
-_Last session: close-ui-001 (close-ticket button). For the next session._
+_Last session: retrieval-001 (vector store + agent tool loop). For the next session._
 
 ## What happened
-- Added `get_open_tickets(customer_id)` to `support_agent/memory.py` — returns
-  `[(ticket_id, subject), ...]` for all Open tickets scoped to one customer.
-- Updated `app.py`: Close Ticket section below the agent reply area.
-  - Picker lists only open tickets for the selected customer.
-  - Resolution text area is required before the Close button fires.
-  - On click: `close_ticket()` marks ticket Closed and updates the customer summary,
-    then `st.rerun()` refreshes the summary expander.
-  - `sqlite3` stays out of `app.py` (boundary check confirmed OK).
-- Bumped title to "Support agent (M2)".
-- All 14 tests pass; ./verify.sh all layers green.
+- Created `support_agent/retrieval.py`:
+  - `make_collection(persist_dir=None)` — chromadb.EphemeralClient (in-memory) or PersistentClient
+  - `index_ticket(ticket_id, customer_id, text, *, collection, embed=None)` — upsert with ticket_id as doc ID (idempotent)
+  - `search_history(customer_id, query, k=4, *, collection, embed=None)` — ALWAYS filters `where={"customer_id": customer_id}`
+  - `backfill_index(*, collection, embed=None)` — lazy-imports `memory.get_closed_tickets()` to stay off sqlite3
+  - No sqlite3 import in retrieval.py (boundary check constraint; DB access via memory.py only)
+
+- Extended `support_agent/memory.py`:
+  - `get_closed_tickets()` → `[(ticket_id, customer_id, subject, body, resolution)]` with `# allow: all-customers`
+  - `close_ticket()` gains `embed=None, collection=None`; when collection provided, lazily imports retrieval and indexes the closed ticket
+
+- Rewrote `support_agent/agent.py`:
+  - Client creation is now lazy (`_get_client()`) so tests injecting `model_call` don't need GROQ_API_KEY set
+  - `_real_model_call(messages, tools)` — normalizes OpenAI tool_call objects to internal dicts, with retry-on-429
+  - `handle_ticket` gains `model_call=None, collection=None, embed=None, max_steps=10`
+  - Tool loop: builds `SEARCH_HISTORY_TOOL` schema when collection provided, calls model in a loop, executes search_history tool calls, feeds results as `role=tool` messages, terminates on no tool_calls or max_steps
+
+- Fixed lint: removed unused `import json` from `tests/test_retrieval.py`
+- Updated `feature_list.json` verification commands to use `.venv/bin/python3` where chromadb is installed
 
 ## State
-- On main, committed, `./verify.sh` green. WIP slot is free.
-- close-ui-001: `passing` with evidence.
+- On main, committed, `./verify.sh` green (21 tests). WIP slot is free.
+- retrieval-001: `passing` with evidence.
 
 ## Next step
-1. `python3 scripts/wip.py activate retrieval-001`
-2. Create `support_agent/retrieval.py` with a Chroma collection (MiniLM embeddings,
-   `customer_id` in metadata) and `search_history(customer_id, query)` that always
-   filters `where={'customer_id': cid}`.
-3. Create `tests/test_retrieval.py` with `test_search_returns_relevant` and
-   `test_search_isolation` (index two customers, assert no cross-leak).
-4. Add `chromadb` and `sentence-transformers` to `requirements.txt`.
-5. Gate: `python3 -m pytest tests/test_retrieval.py::test_search_returns_relevant tests/test_retrieval.py::test_search_isolation -q`
+1. `python3 scripts/wip.py activate tool-loop-001` — the tool loop tests already pass;
+   just need to activate and run `wip.py pass tool-loop-001`
+2. Then activate `index-sync-001` — close_ticket indexing and backfill_index already
+   implemented; just need to activate and confirm those tests pass
 
 ## Watch-outs
-- `close_ticket` scopes by ticket_id (safe), but `check_boundaries.py` only
-  recognises `customer_id` — those two queries still carry `# allow: all-customers`.
-- Chroma + sentence-transformers pull in torch, which is heavy on Streamlit Cloud.
-  Solve the deploy concern at lock-m2-001, not now.
-- First run of retrieval-001 will download MiniLM (~80 MB). Use a tmp dir in tests
-  so the Chroma data doesn't land in data/chroma/ during test runs.
+- `tool-loop-001` and `index-sync-001` verification commands in feature_list.json still
+  say `python -m pytest` (bare `python`); update to `.venv/bin/python3` when activating.
+- `scripts/backfill_embeddings.py` is in index-sync-001's scope but doesn't exist yet —
+  needs to be created (simple script that calls `retrieval.backfill_index`).
+- Chroma + sentence-transformers / torch is heavy on Streamlit Cloud; solve deploy
+  concern at lock-m2-001.
+- The `@observe` decorator from langfuse wraps `handle_ticket`; if langfuse isn't
+  configured locally, traces are silently dropped (no-op). This is correct behavior.
