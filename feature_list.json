@@ -140,15 +140,21 @@
       "area": "retrieval",
       "title": "keep the index in sync + backfill",
       "user_visible_behavior": "Closing a ticket adds it to the vector index, so future searches can find it. A one-time backfill embeds all existing closed tickets.",
-      "verification_command": "python -m pytest tests/test_retrieval.py::test_closed_ticket_is_indexed tests/test_retrieval.py::test_backfill_indexes_all -q",
+      "verification_command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_closed_ticket_is_indexed tests/test_retrieval.py::test_backfill_indexes_all -q",
       "scope": [
         "support_agent/retrieval.py",
         "support_agent/memory.py",
         "scripts/backfill_embeddings.py",
         "tests/test_retrieval.py"
       ],
-      "state": "not_started",
-      "evidence": [],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-30T10:51:43.244367+00:00",
+          "command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_closed_ticket_is_indexed tests/test_retrieval.py::test_backfill_indexes_all -q",
+          "exit": 0
+        }
+      ],
       "notes": "close_ticket also indexes the now-closed ticket. Backfill is idempotent (re-running doesn't duplicate). Only CLOSED tickets get indexed (consistent with D-004). Tests inject stub embeddings if needed to stay offline/fast."
     },
     {
