@@ -169,8 +169,14 @@
         "verify.sh",
         "tests/test_retrieval.py"
       ],
-      "state": "not_started",
-      "evidence": [],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-30T10:57:30.816201+00:00",
+          "command": "./verify.sh",
+          "exit": 0
+        }
+      ],
       "notes": "Manual evidence: one trace showing a tool call and one ticket where the model chose NOT to retrieve (the visible judgment \u2014 the M2 demo beat). Decide here whether cloud deployment ships local embeddings or a fallback (torch is heavy on Streamlit free tier)."
     }
   ]

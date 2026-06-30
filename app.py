@@ -3,7 +3,9 @@ import streamlit as st
 from support_agent import DB_PATH
 from support_agent.agent import handle_ticket
 from support_agent.memory import list_customers, get_customer_summary, close_ticket, get_open_tickets
+from support_agent.retrieval import make_collection
 from support_agent.db_setup import build_database
+
 if not os.path.exists(DB_PATH):
     build_database()
 
@@ -16,6 +18,27 @@ try:
             os.environ[key] = st.secrets[key]
 except Exception:
     pass  # no st.secrets locally — that's fine, .env handles it
+
+
+@st.cache_resource
+def _load_collection():
+    chroma_dir = os.path.join(os.path.dirname(DB_PATH), "chroma")
+    return make_collection(persist_dir=chroma_dir)
+
+
+class _TracingCollection:
+    """Proxy that counts how many times search_history queried the collection."""
+    def __init__(self, col):
+        self._col = col
+        self.queries = 0
+
+    def upsert(self, **kw):
+        return self._col.upsert(**kw)
+
+    def query(self, **kw):
+        self.queries += 1
+        return self._col.query(**kw)
+
 
 st.title("Support agent (M2)")
 st.caption("Memory-centric support agent with per-customer rolling summaries.")
@@ -47,10 +70,15 @@ if st.button("Send to support agent"):
     if not ticket_message.strip():
         st.warning("Please type a message first.")
     else:
+        tracer = _TracingCollection(_load_collection())
         with st.spinner("Agent is thinking..."):
-            reply = handle_ticket(customer_id, ticket_message)
+            reply = handle_ticket(customer_id, ticket_message, collection=tracer)
         st.markdown("### Agent reply")
         st.write(reply)
+        if tracer.queries > 0:
+            st.caption(f"_Retrieval: {tracer.queries} past-ticket search(es) used to inform this reply._")
+        else:
+            st.caption("_Retrieval: not used — model answered directly from context._")
 
 st.divider()
 st.subheader("Close a Ticket")
@@ -75,6 +103,10 @@ else:
             st.warning("Please enter a resolution before closing.")
         else:
             with st.spinner("Closing ticket and updating customer summary..."):
-                close_ticket(selected_ticket_id, resolution_text.strip())
+                close_ticket(
+                    selected_ticket_id,
+                    resolution_text.strip(),
+                    collection=_load_collection(),
+                )
             st.success(f"Ticket #{selected_ticket_id} closed. Customer summary updated.")
             st.rerun()

@@ -26,10 +26,12 @@
   pass (close_ticket indexes on close; backfill_index reads all closed tickets via
   memory.get_closed_tickets). Created scripts/backfill_embeddings.py (idempotent,
   persists to data/chroma/).
-- Last verified: index-sync-001 — ./verify.sh exit 0, VCR 1.00 (6/6), 21 tests.
+- lock-m2-001 complete: M2 MILESTONE LOCKED. app.py wires the persistent Chroma
+  collection into handle_ticket via _TracingCollection proxy; UI shows a retrieval
+  badge ("N search(es) used" or "answered directly"). close_ticket also passes the
+  collection so closures are immediately indexed. All 21 tests pass; VCR 1.00 (7/7).
+- Last verified: lock-m2-001 — ./verify.sh exit 0, VCR 1.00 (7/7), all layers green.
 - Active feature: none.
 
-## Next Action
-Continue M2. Activate the final feature:
-`python3 scripts/wip.py activate lock-m2-001`
-Goal: surface retrieval in the UI trace and run the full M1+M2 suite; verify.sh exits 0.
+## M2 COMPLETE
+All milestone features passing. VCR 1.00 (7/7).
