@@ -33,5 +33,16 @@
 - Last verified: lock-m2-001 — ./verify.sh exit 0, VCR 1.00 (7/7), all layers green.
 - Active feature: none.
 
-## M2 COMPLETE
-All milestone features passing. VCR 1.00 (7/7).
+## M2 COMPLETE — VCR 1.00 (7/7)
+
+## M2.5 in progress
+- perf-001 complete: retrieval.py has module-level _embedder singleton + get_embedder();
+  warning filters for torch/sentence-transformers/transformers added at import time.
+  app.py has @st.cache_resource _load_embedder() called on startup to pre-warm.
+  test_embedder_is_singleton passes. 22 tests total, all layers green.
+- Last verified: perf-001 — ./verify.sh exit 0, 22 passed.
+- Active feature: none.
+
+## Next Action
+Continue M2.5:
+`python3 scripts/wip.py activate dataset-001`

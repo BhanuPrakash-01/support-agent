@@ -1,14 +1,14 @@
 {
   "project": "support-agent",
-  "milestone": "M2",
-  "goal": "Restructure into a package, fix two M1 carry-overs, then add episodic retrieval: past tickets embedded in a vector store and exposed as a tool the model chooses to call. Isolation now extends to the vector store.",
-  "last_updated": "2026-06-28",
+  "milestone": "M2.5",
+  "goal": "Make agent behavior visible and measurable: rich synthetic data, a labeled eval set, a scoring runner, and a multi-turn chat UI. Fix embedder load time first.",
+  "last_updated": "2026-06-30",
   "rules": {
     "wip_limit": 1,
     "passing_requires_evidence": true,
     "do_not_skip_verification": true,
     "deterministic_verification": true,
-    "isolation_invariant": "every customer read \u2014 SQL and vector \u2014 is scoped to a single customer_id"
+    "isolation_invariant": "every customer read \u2014 SQL and vector \u2014 is scoped to a single customer"
   },
   "status_legend": {
     "not_started": "Work has not begun.",
@@ -18,166 +18,103 @@
   },
   "features": [
     {
-      "id": "refactor-001",
+      "id": "perf-001",
       "priority": 1,
-      "area": "refactor",
-      "title": "restructure into an installable package",
-      "user_visible_behavior": "All application code lives in support_agent/, tests in tests/, with a pyproject.toml and `pip install -e .`. The app, tests, scripts, and verify.sh all still work from the new layout. Behavior is byte-for-byte unchanged.",
-      "verification_command": "pip install -e . && ./verify.sh",
+      "area": "perf",
+      "title": "load the embedder once; silence import warnings",
+      "user_visible_behavior": "The MiniLM embedder loads a single time per process (cached), so messages after the first are fast. Import-time warnings no longer flood the console.",
+      "verification_command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_embedder_is_singleton -q",
       "scope": [
-        "pyproject.toml",
-        "support_agent/",
+        "support_agent/retrieval.py",
         "app.py",
-        "tests/",
-        "scripts/",
-        "verify.sh",
-        "init.sh",
-        "requirements.txt",
-        "CLAUDE.md",
-        "docs/",
-        ".gitignore",
-        "data/"
+        "tests/test_retrieval.py"
       ],
       "state": "passing",
       "evidence": [
         {
-          "ts": "2026-06-29T17:41:11.676076+00:00",
-          "command": "pip install -e . && ./verify.sh",
+          "ts": "2026-06-30T11:56:06.419980+00:00",
+          "command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_embedder_is_singleton -q",
           "exit": 0
         }
       ],
-      "notes": "ATOMIC: a refactor can't be half-done and green, so this one feature is legitimately large; verification is the full gate. Move files, fix every import to support_agent.*, move DB to data/support.db (db_setup creates data/), update check_boundaries.py SCAN/DB_ALLOWED to new paths, update verify.sh (db build = python -m support_agent.db_setup; tests = pytest tests/), add pip install -e . to init.sh and `-e .` to requirements.txt, update CLAUDE.md map. Commit before activating anything else."
+      "notes": "Module-level singleton in retrieval.py (load on first use, reuse after); in app.py wrap in @st.cache_resource so it survives reruns. Add a narrow warnings.filterwarnings for the torch/sentence-transformers UserWarnings. Test: calling the embedder factory twice returns the same object. Manual: send two messages, second is fast, no warning spam."
     },
     {
-      "id": "summary-quality-001",
+      "id": "dataset-001",
       "priority": 2,
-      "area": "memory",
-      "title": "summarizer produces a tight, grounded profile",
-      "user_visible_behavior": "A customer summary is <= 3 sentences, never contains 'Unknown' or '[Not specified]', omits name/plan (those come from columns), and states only ticket-grounded facts \u2014 no invented sentiment.",
-      "verification_command": "python3 -m pytest tests/test_memory.py::test_summary_bounded tests/test_memory.py::test_summary_no_unknown_placeholders -q",
+      "area": "data",
+      "title": "synthetic dataset generator with a realistic long tail",
+      "user_visible_behavior": "scripts/generate_dataset.py builds ~40 synthetic customers (IDs from 2001) with realistic ticket histories \u2014 most with 1-2 tickets, a deliberate tail with 10-20 \u2014 appended to the seeded DB. The canonical customers 1001-1003 are untouched.",
+      "verification_command": "python -m pytest tests/test_dataset.py::test_distribution_has_tail tests/test_dataset.py::test_seed_untouched tests/test_dataset.py::test_idempotent -q",
       "scope": [
-        "support_agent/memory.py",
-        "tests/test_memory.py"
+        "scripts/generate_dataset.py",
+        "tests/test_dataset.py"
       ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-30T08:33:02.959273+00:00",
-          "command": "python3 -m pytest tests/test_memory.py::test_summary_bounded tests/test_memory.py::test_summary_no_unknown_placeholders -q",
-          "exit": 0
-        }
-      ],
-      "notes": "Fix is in the summarizer PROMPT, not the mechanism. Tests use the stub summarizer for determinism on length/structure; the no-'Unknown' check runs against a controlled stub output. Assert structure, never exact wording. Manual: regenerate 1001's real summary once and eyeball it."
+      "state": "not_started",
+      "evidence": [],
+      "notes": "Fixed random seed -> reproducible IDs and counts. Generator first runs build_database() (seed), then adds synthetic rows; idempotent (clears customer_id>=2001 before regenerating). Ticket text from templates by category (billing, login, crash, refund, shipping...). Mix of Open/Closed. Tests: at least one customer has >=10 tickets; 1001-1003 unchanged; two runs give identical counts. Note: verify.sh resets the DB to seed-only, so re-run this script before a demo."
     },
     {
-      "id": "close-ui-001",
+      "id": "eval-set-001",
       "priority": 3,
+      "area": "eval",
+      "title": "labeled eval cases",
+      "user_visible_behavior": "data/eval_cases.json holds ~15-20 cases, each: customer_id, incoming message, should_retrieve (bool), and expected_ticket_ids (when true). Covers both 'should look up history' and 'self-contained, should not'.",
+      "verification_command": "python -m pytest tests/test_eval.py::test_eval_set_schema tests/test_eval.py::test_expected_tickets_belong_to_customer -q",
+      "scope": [
+        "data/eval_cases.json",
+        "tests/test_eval.py"
+      ],
+      "state": "not_started",
+      "evidence": [],
+      "notes": "Schema-validated. ISOLATION SANITY: every expected_ticket_id must belong to that case's customer_id (a labeling error here would reward a leak). Reference both seed and generated customers; run generate_dataset first so referenced IDs exist."
+    },
+    {
+      "id": "eval-runner-001",
+      "priority": 4,
+      "area": "eval",
+      "title": "scoring runner for retrieval decisions",
+      "user_visible_behavior": "scripts/run_eval.py runs the agent over eval_cases and prints: retrieve-or-not decision accuracy, and retrieval hit rate (expected ticket in top-k). Makes 'does retrieval work?' a number.",
+      "verification_command": "python -m pytest tests/test_eval.py::test_scoring_decision tests/test_eval.py::test_scoring_hitrate -q",
+      "scope": [
+        "scripts/run_eval.py",
+        "tests/test_eval.py"
+      ],
+      "state": "not_started",
+      "evidence": [],
+      "notes": "The agent records which tools it called so the runner can compare to labels (handle_ticket exposes an optional trace of tool calls). SCORING LOGIC is gate-tested with stubbed agent outputs (deterministic). Running against the LIVE model is MANUAL (nondeterministic, network) \u2014 like the smoke test, not in verify.sh. Manual evidence: paste the printed report."
+    },
+    {
+      "id": "chat-ui-001",
+      "priority": 5,
       "area": "ui",
-      "title": "close-ticket button in the UI",
-      "user_visible_behavior": "From the app, a user can pick an open ticket, type a resolution, click Close, and the ticket is marked Closed and the customer's summary updates \u2014 no terminal needed. A human always performs the close; it is never automatic.",
-      "verification_command": "./verify.sh",
+      "title": "multi-turn chat interface",
+      "user_visible_behavior": "The app uses st.chat_message / st.chat_input. A user holds a back-and-forth with the agent; prior turns persist in the session, so the agent can reference earlier messages in the same conversation.",
+      "verification_command": "python -m pytest tests/test_agent_multiturn.py::test_history_included tests/test_agent_multiturn.py::test_loop_still_terminates -q",
       "scope": [
         "app.py",
-        "tests/test_memory.py"
-      ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-30T08:43:11.417467+00:00",
-          "command": "./verify.sh",
-          "exit": 0
-        }
-      ],
-      "notes": "Button calls the existing close_ticket(). UI itself is verified manually (record in evidence: closed a ticket from the app, summary changed). Gate just ensures no regression. Closing stays human-initiated by design (D-008 territory: irreversible action = human in the loop)."
-    },
-    {
-      "id": "retrieval-001",
-      "priority": 4,
-      "area": "retrieval",
-      "title": "vector store with isolated semantic search",
-      "user_visible_behavior": "support_agent/retrieval.py indexes a customer's past tickets into a local Chroma collection (customer_id in metadata, MiniLM embeddings) and search_history(customer_id, query) returns the most semantically relevant past tickets FOR THAT CUSTOMER ONLY.",
-      "verification_command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_search_returns_relevant tests/test_retrieval.py::test_search_isolation -q",
-      "scope": [
-        "support_agent/retrieval.py",
-        "tests/test_retrieval.py",
-        "requirements.txt"
-      ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-30T09:53:27.679235+00:00",
-          "command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_search_returns_relevant tests/test_retrieval.py::test_search_isolation -q",
-          "exit": 0
-        }
-      ],
-      "notes": "ISOLATION IS LOAD-BEARING HERE: every query passes where={'customer_id': cid}. check_boundaries.py cannot see Chroma, so test_search_isolation (index two customers, assert no cross-leak) is the only guard. Single collection + metadata filter (D-007). Embeddings local via sentence-transformers; first run downloads MiniLM. Chroma persists to data/chroma/."
-    },
-    {
-      "id": "tool-loop-001",
-      "priority": 5,
-      "area": "agent",
-      "title": "retrieval exposed as a tool the model can call",
-      "user_visible_behavior": "search_history is registered as a tool schema. When a ticket references the past, the model emits a tool call; the loop runs the search, feeds results back, and the model answers using them. When a ticket is self-contained, the model answers without calling it.",
-      "verification_command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_loop_executes_tool_call tests/test_retrieval.py::test_loop_terminates -q",
-      "scope": [
         "support_agent/agent.py",
-        "support_agent/retrieval.py",
-        "tests/test_retrieval.py"
+        "tests/test_agent_multiturn.py"
       ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-30T10:49:33.208521+00:00",
-          "command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_loop_executes_tool_call tests/test_retrieval.py::test_loop_terminates -q",
-          "exit": 0
-        }
-      ],
-      "notes": "handle_ticket gains an injectable model-call (default = real Groq) so the loop is testable with a stub model that emits a tool call, then a final answer. Tests assert the tool ran and the loop terminated \u2014 deterministic, offline. Keep retry-on-429. This is the first REAL multi-step agent loop."
+      "state": "not_started",
+      "evidence": [],
+      "notes": "handle_ticket gains an optional conversation history param; the chat UI stores turns in st.session_state and passes them. Test (with stub model): prior turns appear in the messages sent to the model; the tool loop still terminates with history present. UI itself verified manually."
     },
     {
-      "id": "index-sync-001",
+      "id": "lock-m25-001",
       "priority": 6,
-      "area": "retrieval",
-      "title": "keep the index in sync + backfill",
-      "user_visible_behavior": "Closing a ticket adds it to the vector index, so future searches can find it. A one-time backfill embeds all existing closed tickets.",
-      "verification_command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_closed_ticket_is_indexed tests/test_retrieval.py::test_backfill_indexes_all -q",
-      "scope": [
-        "support_agent/retrieval.py",
-        "support_agent/memory.py",
-        "scripts/backfill_embeddings.py",
-        "tests/test_retrieval.py"
-      ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-30T10:51:43.244367+00:00",
-          "command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_closed_ticket_is_indexed tests/test_retrieval.py::test_backfill_indexes_all -q",
-          "exit": 0
-        }
-      ],
-      "notes": "close_ticket also indexes the now-closed ticket. Backfill is idempotent (re-running doesn't duplicate). Only CLOSED tickets get indexed (consistent with D-004). Tests inject stub embeddings if needed to stay offline/fast."
-    },
-    {
-      "id": "lock-m2-001",
-      "priority": 7,
       "area": "verify",
-      "title": "surface retrieval, lock the M2 gate",
-      "user_visible_behavior": "The UI/trace shows when retrieval was used for a reply. verify.sh runs the full M1+M2 suite and exits 0.",
+      "title": "surface eval results, lock the gate",
+      "user_visible_behavior": "README/PROGRESS shows the latest eval numbers. verify.sh runs the full suite (M1+M2+M2.5 deterministic tests) and exits 0.",
       "verification_command": "./verify.sh",
       "scope": [
         "app.py",
         "verify.sh",
-        "tests/test_retrieval.py"
+        "README.md"
       ],
-      "state": "passing",
-      "evidence": [
-        {
-          "ts": "2026-06-30T10:57:30.816201+00:00",
-          "command": "./verify.sh",
-          "exit": 0
-        }
-      ],
-      "notes": "Manual evidence: one trace showing a tool call and one ticket where the model chose NOT to retrieve (the visible judgment \u2014 the M2 demo beat). Decide here whether cloud deployment ships local embeddings or a fallback (torch is heavy on Streamlit free tier)."
+      "state": "not_started",
+      "evidence": [],
+      "notes": "Manual evidence: (1) eval report with real numbers; (2) a chat demo on a high-history generated customer where the agent CHOOSES to retrieve on a back-reference and does NOT on a self-contained question \u2014 the visible-judgment beat."
     }
   ]
 }

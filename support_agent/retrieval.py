@@ -20,15 +20,31 @@ backfill_index(*, collection, embed=None) -> None
     Read every CLOSED ticket from the DB and index it. Idempotent (upsert).
 """
 
+import warnings
+
 import chromadb
+
+# Silence noisy UserWarnings from torch and sentence-transformers at import time.
+warnings.filterwarnings("ignore", category=UserWarning, module=r"torch")
+warnings.filterwarnings("ignore", category=UserWarning, module=r"sentence_transformers")
+warnings.filterwarnings("ignore", category=FutureWarning, module=r"transformers")
 
 COLLECTION_NAME = "tickets"
 
+_embedder = None  # module-level singleton; loaded once on first use
+
+
+def get_embedder():
+    """Return the shared MiniLM embedder, loading it on the first call only."""
+    global _embedder
+    if _embedder is None:
+        from sentence_transformers import SentenceTransformer
+        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedder
+
 
 def _default_embed(text: str) -> list:
-    from sentence_transformers import SentenceTransformer
-    model = SentenceTransformer("all-MiniLM-L6-v2")
-    return model.encode(text).tolist()
+    return get_embedder().encode(text).tolist()
 
 
 def make_collection(persist_dir=None):

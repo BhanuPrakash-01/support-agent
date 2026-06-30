@@ -131,3 +131,12 @@ def test_backfill_indexes_all(col):
     # 1001's ticket 55980 ('App crashes on startup') is closed in the seed data.
     results = retrieval.search_history(1001, "crash startup", k=3, collection=col, embed=stub_embed)
     assert any(r["ticket_id"] == 55980 for r in results), "backfill missed a closed ticket"
+
+
+# === perf-001 : embedder singleton ==========================================
+
+def test_embedder_is_singleton():
+    """get_embedder() returns the same object on every call — model loads once."""
+    e1 = retrieval.get_embedder()
+    e2 = retrieval.get_embedder()
+    assert e1 is e2, "embedder must be cached; SentenceTransformer must not reload on second call"

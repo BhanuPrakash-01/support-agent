@@ -3,7 +3,7 @@ import streamlit as st
 from support_agent import DB_PATH
 from support_agent.agent import handle_ticket
 from support_agent.memory import list_customers, get_customer_summary, close_ticket, get_open_tickets
-from support_agent.retrieval import make_collection
+from support_agent.retrieval import make_collection, get_embedder
 from support_agent.db_setup import build_database
 
 if not os.path.exists(DB_PATH):
@@ -18,6 +18,12 @@ try:
             os.environ[key] = st.secrets[key]
 except Exception:
     pass  # no st.secrets locally — that's fine, .env handles it
+
+
+@st.cache_resource
+def _load_embedder():
+    """Pre-warm the MiniLM embedder once; survives Streamlit reruns."""
+    return get_embedder()
 
 
 @st.cache_resource
@@ -39,6 +45,8 @@ class _TracingCollection:
         self.queries += 1
         return self._col.query(**kw)
 
+
+_load_embedder()  # warm the singleton before the first user message
 
 st.title("Support agent (M2)")
 st.caption("Memory-centric support agent with per-customer rolling summaries.")
