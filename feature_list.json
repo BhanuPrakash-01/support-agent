@@ -118,14 +118,20 @@
       "area": "agent",
       "title": "retrieval exposed as a tool the model can call",
       "user_visible_behavior": "search_history is registered as a tool schema. When a ticket references the past, the model emits a tool call; the loop runs the search, feeds results back, and the model answers using them. When a ticket is self-contained, the model answers without calling it.",
-      "verification_command": "python -m pytest tests/test_retrieval.py::test_loop_executes_tool_call tests/test_retrieval.py::test_loop_terminates -q",
+      "verification_command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_loop_executes_tool_call tests/test_retrieval.py::test_loop_terminates -q",
       "scope": [
         "support_agent/agent.py",
         "support_agent/retrieval.py",
         "tests/test_retrieval.py"
       ],
-      "state": "not_started",
-      "evidence": [],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-30T10:49:33.208521+00:00",
+          "command": ".venv/bin/python3 -m pytest tests/test_retrieval.py::test_loop_executes_tool_call tests/test_retrieval.py::test_loop_terminates -q",
+          "exit": 0
+        }
+      ],
       "notes": "handle_ticket gains an injectable model-call (default = real Groq) so the loop is testable with a stub model that emits a tool call, then a final answer. Tests assert the tool ran and the loop terminated \u2014 deterministic, offline. Keep retry-on-429. This is the first REAL multi-step agent loop."
     },
     {

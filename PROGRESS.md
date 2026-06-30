@@ -20,9 +20,13 @@
   21 passed, all layers green.
 - Active feature: none.
 
+- tool-loop-001 complete: test_loop_executes_tool_call and test_loop_terminates confirmed
+  passing. Implementation was delivered as part of retrieval-001 (agent.py tool loop).
+- Last verified: tool-loop-001 — .venv/bin/python3 -m pytest 2 passed.
+- Active feature: none.
+
 ## Next Action
 Continue M2. Activate the next feature:
-`python3 scripts/wip.py activate tool-loop-001`
-Goal: the agent tool loop and inject points are already implemented; tool-loop-001
-verification command tests need to be confirmed passing (test_loop_executes_tool_call,
-test_loop_terminates). These tests already pass as a side-effect of retrieval-001 work.
+`python3 scripts/wip.py activate index-sync-001`
+Goal: confirm test_closed_ticket_is_indexed and test_backfill_indexes_all pass
+(already implemented); create scripts/backfill_embeddings.py.
