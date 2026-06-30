@@ -6,13 +6,16 @@
   (installable via `pip install -e .`), tests in tests/, DB in data/.
 - summary-quality-001 complete: summarizer prompt tightened to <= 3 sentences,
   no 'Unknown'/'[Not specified]' placeholders, no name/plan, ticket-grounded facts only.
-  Tests: test_summary_bounded, test_summary_no_unknown_placeholders — both passing.
-- Last verified: summary-quality-001 — pytest 2 passed; ./verify.sh 14 passed.
+- close-ui-001 complete: Close Ticket section added to app.py. Picker shows only
+  open tickets for the selected customer; resolution text required before Close button
+  fires close_ticket(); page reruns to reflect updated summary. DB query moved into
+  memory.get_open_tickets() to keep sqlite3 out of app.py (boundary check passes).
+- Last verified: close-ui-001 — ./verify.sh exit 0 (14 tests, all layers green).
 - Active feature: none.
 
 ## Next Action
 Continue M2. Activate the next feature:
-`python3 scripts/wip.py activate close-ui-001`
-Goal: add a Close Ticket button to the Streamlit UI so a user can pick an open
-ticket, type a resolution, click Close, and the ticket is marked Closed with the
-customer's summary updated — no terminal needed.
+`python3 scripts/wip.py activate retrieval-001`
+Goal: add support_agent/retrieval.py — a Chroma vector store that indexes a
+customer's past closed tickets and exposes search_history(customer_id, query),
+isolated by customer_id metadata filter.

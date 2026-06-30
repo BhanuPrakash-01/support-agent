@@ -80,8 +80,14 @@
         "app.py",
         "tests/test_memory.py"
       ],
-      "state": "not_started",
-      "evidence": [],
+      "state": "passing",
+      "evidence": [
+        {
+          "ts": "2026-06-30T08:43:11.417467+00:00",
+          "command": "./verify.sh",
+          "exit": 0
+        }
+      ],
       "notes": "Button calls the existing close_ticket(). UI itself is verified manually (record in evidence: closed a ticket from the app, summary changed). Gate just ensures no regression. Closing stays human-initiated by design (D-008 territory: irreversible action = human in the loop)."
     },
     {

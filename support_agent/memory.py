@@ -187,6 +187,21 @@ def backfill_summaries(summarizer=None) -> None:
             )
 
 
+def get_open_tickets(customer_id: int) -> list:
+    """Return [(ticket_id, subject), ...] for all Open tickets belonging to customer_id."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT ticket_id, subject FROM tickets"
+        " WHERE customer_id = ? AND status = 'Open'"
+        " ORDER BY created_at DESC",
+        (customer_id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+
 def list_customers():
     """Fetch (id, name, plan) for every customer, to populate the dropdown."""
     conn = sqlite3.connect(DB_PATH)
